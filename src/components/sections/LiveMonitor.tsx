@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface Box {
   id: string;
@@ -12,6 +13,12 @@ interface Box {
   w: number; // 0..1
   h: number; // 0..1
   type: "missing_helmet" | "missing_vest" | "zone_violation";
+}
+
+interface DetectionEvent {
+  id: string;
+  type: Box["type"];
+  at: string; // ISO timestamp
 }
 
 const randomBox = (): Box => {
@@ -44,6 +51,7 @@ const LiveMonitor = () => {
   const [simulate, setSimulate] = useState(true);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [alerts, setAlerts] = useState({ email: true, slack: true, whatsapp: false });
+  const [events, setEvents] = useState<DetectionEvent[]>([]);
 
   useEffect(() => {
     const start = async () => {
@@ -71,6 +79,7 @@ const LiveMonitor = () => {
     const id = setInterval(() => {
       const box = randomBox();
       setBoxes((prev) => [box, ...prev].slice(0, 5));
+      setEvents((prev) => [{ id: box.id, type: box.type, at: new Date().toISOString() }, ...prev].slice(0, 50));
       toast(
         `${typeLabel[box.type]} detected`,
         {
@@ -147,6 +156,37 @@ const LiveMonitor = () => {
                 <Checkbox id="whatsapp" checked={alerts.whatsapp} onCheckedChange={(v) => setAlerts((a) => ({ ...a, whatsapp: Boolean(v) }))} />
                 <Label htmlFor="whatsapp">WhatsApp</Label>
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="font-medium">Real-time tracker</div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-md border p-2">
+                <div className="text-xs text-muted-foreground">Missing helmet</div>
+                <div className="text-lg font-semibold">{events.filter(e => e.type === "missing_helmet").length}</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-xs text-muted-foreground">Missing vest</div>
+                <div className="text-lg font-semibold">{events.filter(e => e.type === "missing_vest").length}</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-xs text-muted-foreground">Zone violations</div>
+                <div className="text-lg font-semibold">{events.filter(e => e.type === "zone_violation").length}</div>
+              </div>
+            </div>
+            <div className="rounded-md border p-3 max-h-48 overflow-y-auto bg-muted/30">
+              <ul className="space-y-2 text-sm">
+                {events.slice(0, 20).map(ev => (
+                  <li key={ev.id} className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2">
+                      <Badge variant="secondary">{typeLabel[ev.type]}</Badge>
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">{new Date(ev.at).toLocaleTimeString()}</span>
+                  </li>
+                ))}
+                {events.length === 0 && <li className="text-muted-foreground">No events yet.</li>}
+              </ul>
             </div>
           </div>
 
