@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface Box {
   id: string;
@@ -52,22 +53,43 @@ const LiveMonitor = () => {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [alerts, setAlerts] = useState({ email: true, slack: true, whatsapp: false });
   const [events, setEvents] = useState<DetectionEvent[]>([]);
+  const [camError, setCamError] = useState<string | null>(null);
+
+  const startCamera = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("getUserMedia not supported");
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false,
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        // Ensure inline autoplay on iOS/Safari
+        videoRef.current.setAttribute("playsinline", "true");
+        await videoRef.current.play().catch(() => {
+          /* ignore autoplay errors, video has srcObject */
+        });
+        setReady(true);
+        setCamError(null);
+      }
+    } catch (e: any) {
+      console.warn("Camera unavailable, falling back to demo mode.", e);
+      setReady(false);
+      const name = e?.name || e?.message || "Error";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        setCamError('Camera permission was denied. Click "Enable Camera" to retry.');
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+        setCamError("No camera device detected.");
+      } else {
+        setCamError("Camera unavailable in this context. Demo mode enabled.");
+      }
+    }
+  };
 
   useEffect(() => {
-    const start = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          setReady(true);
-        }
-      } catch (e) {
-        console.warn("Camera unavailable, falling back to demo mode.");
-        setReady(false);
-      }
-    };
-    start();
+    startCamera();
     return () => {
       const s = videoRef.current?.srcObject as MediaStream | undefined;
       s?.getTracks().forEach((t) => t.stop());
@@ -99,10 +121,15 @@ const LiveMonitor = () => {
         <CardContent>
           <div className="relative aspect-video w-full overflow-hidden rounded-lg border">
             {ready ? (
-              <video ref={videoRef} className="h-full w-full object-cover" muted />
+              <video ref={videoRef} className="h-full w-full object-cover" muted autoPlay playsInline />
             ) : (
-              <div className="h-full w-full grid place-items-center text-muted-foreground">
-                Connect a camera to view live feed. Demo overlays shown.
+              <div className="h-full w-full grid place-items-center text-center text-muted-foreground p-4">
+                <div className="space-y-3">
+                  <p>{camError ?? "Connect a camera to view live feed. Demo overlays shown."}</p>
+                  <div className="flex justify-center">
+                    <Button size="sm" onClick={startCamera}>Enable Camera</Button>
+                  </div>
+                </div>
               </div>
             )}
             {/* Overlays */}
