@@ -126,9 +126,11 @@ const LiveMonitor = () => {
               <div className="h-full w-full grid place-items-center text-center text-muted-foreground p-4">
                 <div className="space-y-3">
                   <p>{camError ?? "Connect a camera to view live feed. Demo overlays shown."}</p>
-                  <div className="flex justify-center">
+                  <div className="flex justify-center gap-2">
                     <Button size="sm" onClick={startCamera}>Enable Camera</Button>
+                    <Button size="sm" variant="outline" onClick={() => window.open(window.location.href, "_blank", "noopener")}>Open in new tab</Button>
                   </div>
+                  <p className="text-xs">If preview blocks camera, opening in a new tab usually fixes it.</p>
                 </div>
               </div>
             )}
