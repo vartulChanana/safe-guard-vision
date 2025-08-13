@@ -64,11 +64,6 @@ const LiveMonitor = () => {
         throw new Error("getUserMedia not supported");
       }
       
-      // Try to get available devices first
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
-      console.log("Available video devices:", videoDevices.length);
-      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           width: { ideal: 1280 },
@@ -78,26 +73,18 @@ const LiveMonitor = () => {
         audio: false,
       });
       
-      console.log("Camera stream obtained:", stream);
+      console.log("Camera stream obtained, setting up video...");
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute("playsinline", "true");
-        videoRef.current.setAttribute("muted", "true");
-        videoRef.current.autoplay = true;
         
-        // Wait for video to be ready
-        await new Promise((resolve) => {
-          if (videoRef.current) {
-            videoRef.current.onloadedmetadata = () => {
-              console.log("Video metadata loaded");
-              resolve(void 0);
-            };
-          }
-        });
+        // Force video to play
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+        }
         
-        await videoRef.current.play();
-        console.log("Video playing successfully");
+        console.log("Video should now be playing");
         setReady(true);
         setCamError(null);
       }
@@ -106,11 +93,11 @@ const LiveMonitor = () => {
       setReady(false);
       const name = e?.name || e?.message || "Error";
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-        setCamError('Camera permission was denied. Click "Enable Camera" to retry.');
+        setCamError('Camera permission denied. Please allow camera access and try again.');
       } else if (name === "NotFoundError" || name === "OverconstrainedError") {
-        setCamError("No camera device detected.");
+        setCamError("No camera found or camera constraints not supported.");
       } else {
-        setCamError(`Camera error: ${name}. Demo mode enabled.`);
+        setCamError(`Camera error: ${name}`);
       }
     }
   };
@@ -147,9 +134,15 @@ const LiveMonitor = () => {
         </CardHeader>
         <CardContent>
           <div className="relative aspect-video w-full overflow-hidden rounded-lg border">
-            {ready ? (
-              <video ref={videoRef} className="h-full w-full object-cover" muted autoPlay playsInline />
-            ) : (
+            <video 
+              ref={videoRef} 
+              className="h-full w-full object-cover" 
+              muted 
+              autoPlay 
+              playsInline
+              style={{ display: ready ? 'block' : 'none' }}
+            />
+            {!ready && (
               <div className="h-full w-full grid place-items-center text-center text-muted-foreground p-4">
                 <div className="space-y-3">
                   <p>{camError ?? "Connect a camera to view live feed. Demo overlays shown."}</p>
