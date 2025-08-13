@@ -57,25 +57,52 @@ const LiveMonitor = () => {
 
   const startCamera = async () => {
     try {
+      setCamError(null);
+      console.log("Attempting to access camera...");
+      
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("getUserMedia not supported");
       }
+      
+      // Try to get available devices first
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      console.log("Available video devices:", videoDevices.length);
+      
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
+        video: { 
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: "user" 
+        },
         audio: false,
       });
+      
+      console.log("Camera stream obtained:", stream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // Ensure inline autoplay on iOS/Safari
         videoRef.current.setAttribute("playsinline", "true");
-        await videoRef.current.play().catch(() => {
-          /* ignore autoplay errors, video has srcObject */
+        videoRef.current.setAttribute("muted", "true");
+        videoRef.current.autoplay = true;
+        
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = () => {
+              console.log("Video metadata loaded");
+              resolve(void 0);
+            };
+          }
         });
+        
+        await videoRef.current.play();
+        console.log("Video playing successfully");
         setReady(true);
         setCamError(null);
       }
     } catch (e: any) {
-      console.warn("Camera unavailable, falling back to demo mode.", e);
+      console.error("Camera error:", e);
       setReady(false);
       const name = e?.name || e?.message || "Error";
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
@@ -83,7 +110,7 @@ const LiveMonitor = () => {
       } else if (name === "NotFoundError" || name === "OverconstrainedError") {
         setCamError("No camera device detected.");
       } else {
-        setCamError("Camera unavailable in this context. Demo mode enabled.");
+        setCamError(`Camera error: ${name}. Demo mode enabled.`);
       }
     }
   };
